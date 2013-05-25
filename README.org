@@ -1,0 +1,24 @@
+* cDisPass
+
+  cdispass is a JavaScript-based wrapper around [[http://dispass.babab.nl/][DisPass]] for the
+  [[http://conkeror.org][Conkeror Web Browser]].
+
+** Usage
+
+   To use cdispass: Add its location to your load_paths and require it.
+
+   #+BEGIN_SRC js
+     load_paths.push("/path/to/cdispass/");
+     require("cdispass");
+   #+END_SRC
+
+   And then you can use =M-x dispass= or you could bind
+   =dispass-and-submit= to some key, like:
+
+   #+BEGIN_SRC js
+     define_key(content_buffer_text_keymap, "C-c d", "dispass-and-submit");
+   #+END_SRC
+
+   Which would cause =C-c d= to call the =dispass= command, insert the
+   result in the current focused element and then submit the form in
+   which the element is placed.
