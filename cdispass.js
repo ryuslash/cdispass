@@ -53,8 +53,43 @@ function dispass(label, password)
     yield co_return(data);
 }
 
+function dispass_complete(input, pos, conservative)
+{
+    if (pos == 0 && conservative)
+        yield co_return(undefined);
+
+    let str = input.substring(0, pos);
+
+    var data = "", error = "", ret = [];
+    var result = yield shell_command(
+        dispass_executable + " list --script",
+        $fds = [{ output: async_binary_string_writer("") },
+                { input: async_binary_reader(
+                    function (s) data += s || "" ) },
+                { input: async_binary_reader(
+                    function (s) error += s || "") }]);
+
+    if (result != 0 || error != "")
+        throw new Error("result: " + result + ", error: " + error);
+    else if (data != "") {
+        data.split('\n').forEach(function (row) {
+            let match = /(^.{50})/.exec(row);
+            if (match && (str == "" || match[1].contains(str)))
+                ret.push(match[1].trim());
+        });
+
+        let c = { count: ret.length,
+                  get_string: function (i) ret[i],
+                  get_description: function (i) "",
+                  get_input_state: function (i) [ret[i]] };
+        yield co_return(c);
+    }
+}
+
 function dispass_interactive(I) {
-    let label = yield I.minibuffer.read($prompt="label:");
+    let label = yield I.minibuffer.read($prompt="label:",
+                                        $auto_complete=true,
+                                        $completer=dispass_complete);
 
     I.minibuffer.input_element.type = "password";
     let password = yield I.minibuffer.read(
