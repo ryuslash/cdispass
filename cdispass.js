@@ -86,25 +86,42 @@ function dispass_complete(input, pos, conservative)
     }
 }
 
-function dispass_interactive(I) {
-    let label = yield I.minibuffer.read($prompt="label:",
-                                        $auto_complete=true,
-                                        $completer=dispass_complete);
+function dispass_interactive(with_submit) {
+    return function (I) {
+        if (!I.buffer.focused_element) {
+            I.minibuffer.message("No input selected.");
+            yield co_return(null);
+        }
 
-    I.minibuffer.input_element.type = "password";
-    let password = yield I.minibuffer.read(
-        $prompt="password:"
-    );
-    I.minibuffer.input_element.type = "";
+        let label = yield I.minibuffer.read(
+            $prompt="label:", $auto_complete=true,
+            $completer=dispass_complete
+        );
 
-    I.buffer.focused_element.value = (yield dispass(label, password));
+        I.minibuffer.input_element.type = "password";
+        let password = yield I.minibuffer.read(
+            $prompt="password:"
+        );
+        I.minibuffer.input_element.type = "";
+
+        I.buffer.focused_element.value =
+            (yield dispass(label, password));
+
+        if (with_submit)
+            I.buffer.focused_element.form.submit();
+    };
 }
 
-interactive("dispass", "Something", dispass_interactive);
-interactive("dispass-and-submit", "Something",
-            function (I) {
-                yield dispass_interactive(I);
-                I.buffer.focused_element.form.submit();
-            });
+interactive("dispass",
+            "Call DisPass to generate a passphrase.\n"
+            + "\n"
+            + "Put the result in the currently focused input.",
+            dispass_interactive(false));
+interactive("dispass-and-submit",
+            "Call Dispass to generate a passphrase.\n"
+            + "\n"
+            + "Put the result in the currently focused input and"
+            + " submit the input's form.",
+            dispass_interactive(true));
 
 provide("cdispass");
