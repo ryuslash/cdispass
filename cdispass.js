@@ -53,38 +53,43 @@ function dispass(label, password)
     yield co_return(data);
 }
 
-function dispass_complete(input, pos, conservative)
+function dispass_completer()
 {
-    if (pos == 0 && conservative)
-        yield co_return(undefined);
-
-    let str = input.substring(0, pos);
-
-    var data = "", error = "", ret = [];
-    var result = yield shell_command(
-        dispass_executable + " list --script",
-        $fds = [{ output: async_binary_string_writer("") },
-                { input: async_binary_reader(
-                    function (s) data += s || "" ) },
-                { input: async_binary_reader(
-                    function (s) error += s || "") }]);
-
-    if (result != 0 || error != "")
-        throw new Error("result: " + result + ", error: " + error);
-    else if (data != "") {
-        data.split('\n').forEach(function (row) {
-            let match = /(^.{50})/.exec(row);
-            if (match && (str == "" || match[1].contains(str)))
-                ret.push(match[1].trim());
-        });
-
-        let c = { count: ret.length,
-                  get_string: function (i) ret[i],
-                  get_description: function (i) "",
-                  get_input_state: function (i) [ret[i]] };
-        yield co_return(c);
-    }
+    keywords(arguments);
+    completer.call(this, forward_keywords(arguments));
 }
+dispass_completer.prototype = {
+    constructor: dispass_completer,
+    __proto__: completer.prototype,
+    toString: function () "#<dispass_completer>",
+    complete: function (input, pos) {
+        if (pos == 0)
+            yield co_return(undefined);
+
+        let str = input.substring(0, pos);
+
+        var data = "", error = "", ret = [];
+        var result = yield shell_command(
+            dispass_executable + " list --script",
+            $fds = [{ output: async_binary_string_writer("") },
+                    { input: async_binary_reader(
+                        function (s) data += s || "" ) },
+                    { input: async_binary_reader(
+                        function (s) error += s || "") }]);
+
+        if (result != 0 || error != "")
+            throw new Error("result: " + result + ", error: " + error);
+        else if (data != "") {
+            data.split('\n').forEach(function (row) {
+                let match = /(^.{50})/.exec(row);
+                if (match && (str == "" || match[1].contains(str)))
+                    ret.push(match[1].trim());
+            });
+
+            yield co_return(new completions(this, ret));
+        }
+    }
+};
 
 function dispass_interactive(with_submit) {
     return function (I) {
@@ -95,7 +100,7 @@ function dispass_interactive(with_submit) {
 
         let label = yield I.minibuffer.read(
             $prompt="label:", $auto_complete=true,
-            $completer=dispass_complete
+            $completer=new dispass_completer()
         );
 
         I.minibuffer.input_element.type = "password";
